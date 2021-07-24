@@ -1,1 +1,1 @@
-web: ./wazar
+web: bin/wazar

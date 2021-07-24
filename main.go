@@ -6,16 +6,22 @@ import (
 	request "github.com/hunterbdm/hello-requests"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 )
 
 func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
 	fs := http.FileServer(http.Dir("./content"))
 	http.Handle("/", fs)
 	http.HandleFunc("/api", api)
 
-	log.Println("Listening on :3000...")
-	err := http.ListenAndServe(":3000", nil)
+	log.Println("Listening on :", port, "...")
+	err := http.ListenAndServe(":" + port, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

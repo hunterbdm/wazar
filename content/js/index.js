@@ -11,6 +11,8 @@ function updateLocation(position) {
     loc.long = position.coords.longitude;
     loc.heading = position.coords.heading || 0;
 
+    console.log(loc)
+
     // If its first position pulled we start pulling the waze cop data
     if (first) {
         first = false
@@ -145,7 +147,29 @@ function calculateAngle(lat1,lon1,lat2,lon2) {
 
 // Start by attempting to watch the geolocation position
 if('geolocation' in navigator) {
-    navigator.geolocation.watchPosition(updateLocation);
+    try {
+        //navigator.geolocation.watchPosition(updateLocation);
+        navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': false, 'timeout': 1000, 'maximumAge': 10000 });
+        setInterval(() => {
+            navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
+        }, 1000)
+    } catch(e) {
+        document.body.innerHTML = String(e)
+    }
 } else {
     document.body.innerHTML = "geolocation not supported in this browser"
+}
+
+// css flip
+let lightTheme = true;
+window.onclick = function() {
+    lightTheme = !lightTheme;
+
+    if (lightTheme) {
+        document.body.style.backgroundColor = '#ffffff'
+        document.body.style.color = '#000000'
+    } else {
+        document.body.style.backgroundColor = '#000000'
+        document.body.style.color = '#ffffff'
+    }
 }

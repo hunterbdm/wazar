@@ -4,6 +4,7 @@ let loc = {
     heading: 0,
 }
 let cops = [];
+const isDebug = document.location.search.includes('debug')
 
 window.ulfs = (input) => {
     let split = input.split(',').map(x => Number(x.trim()))
@@ -46,7 +47,7 @@ function updateLocation(position) {
 
 function updateHeading(e) {
     console.log(e)
-    loc.heading = e['webkitCompassHeading'] || Math.abs(e.alpha - 360);
+    loc.heading = (e['webkitCompassHeading'] || Math.abs(e.alpha - 360)) % 360;
     updateUI()
 }
 
@@ -68,6 +69,8 @@ function updateUI() {
     document.querySelector('#currentLat').innerText = Number(loc.lat).toFixed(8)
     document.querySelector('#currentLong').innerText = Number(loc.long).toFixed(8)
     document.querySelector('#currentHeading').style.transform = `rotateZ(${Number(loc.heading)}deg)`
+    if (isDebug)
+        document.querySelector('#currentHeading').parentElement.childNodes[0].textContent = `HEADING: ${Math.round(loc.heading)}`
 
     for (let i = 0; i < cops.length; i++) {
         cops[i].distance = calculateDistance(loc.lat, loc.long, cops[i].location.y, cops[i].location.x)
@@ -108,6 +111,10 @@ function createEntry(cop) {
     span.innerText = `${cop.distance.toFixed(2)} miles`
     if (cop.street) span.innerText += ` (${cop.street})`
 
+    if (isDebug) {
+        span.innerText += ` (${Math.round(cop.angleTo)} / ${fixedAngle})`
+    }
+
     entry.appendChild(arrow);
     entry.appendChild(span);
 
@@ -121,6 +128,10 @@ function updateEntry(entry, cop) {
     const span = entry.querySelector('span')
     span.innerText = `${cop.distance.toFixed(2)} miles`
     if (cop.street) span.innerText += ` (${cop.street})`
+
+    if (isDebug) {
+        span.innerText += ` (${Math.round(cop.angleTo)} / ${fixedAngle})`
+    }
 }
 
 // https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula
@@ -161,6 +172,10 @@ function calculateAngle(lat1,lon1,lat2,lon2) {
 
 void function start() {
     try {
+        const isIOS =
+            navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
+            navigator.userAgent.match(/AppleWebKit/);
+
         // Start by attempting to watch the geolocation position
         if('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
@@ -172,9 +187,6 @@ void function start() {
         }
 
         // Then device orientation for heading
-        const isIOS =
-            navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
-            navigator.userAgent.match(/AppleWebKit/);
         if (!isIOS) {
             window.addEventListener("deviceorientationabsolute", updateHeading, true);
         }

@@ -1,7 +1,10 @@
-let loc;
+let loc = {
+    lat: 0,
+    long: 0,
+    heading: 0,
+}
 let cops = [];
 
-// 29.765076221317727, -95.4093851307223
 window.ulfs = (input) => {
     let split = input.split(',').map(x => Number(x.trim()))
 
@@ -14,12 +17,14 @@ window.ulfs = (input) => {
 }
 
 function updateLocation(position) {
-    if (!loc) {
-        loc = {
-            lat: position.coords.latitude,
-            long: position.coords.longitude,
-            heading: 0,
-        }
+    if (loc.lat === 0 && loc.long === 0) {
+        // loc = {
+        //     lat: position.coords.latitude,
+        //     long: position.coords.longitude,
+        //     heading: 0,
+        // }
+        loc.lat = position.coords.latitude;
+        loc.long = position.coords.longitude;
 
         pullWazeData();
         setInterval(() => pullWazeData(), 5000)
@@ -27,14 +32,22 @@ function updateLocation(position) {
         if (loc.lat === position.coords.latitude && loc.long === position.coords.longitude)
             return
 
-        loc = {
-            lat: position.coords.latitude,
-            long: position.coords.longitude,
-            heading: calculateAngle(loc.lat, loc.long, position.coords.latitude, position.coords.longitude),
-        }
+        // loc = {
+        //     lat: position.coords.latitude,
+        //     long: position.coords.longitude,
+        //     heading: calculateAngle(loc.lat, loc.long, position.coords.latitude, position.coords.longitude),
+        // }
+        loc.lat = position.coords.latitude;
+        loc.long = position.coords.longitude;
     }
 
     updateUI();
+}
+
+function updateHeading(e) {
+    console.log(e)
+    loc.heading = e['webkitCompassHeading'] || Math.abs(e.alpha - 360);
+    updateUI()
 }
 
 async function pullWazeData() {
@@ -110,9 +123,6 @@ function updateEntry(entry, cop) {
     if (cop.street) span.innerText += ` (${cop.street})`
 }
 
-// 29.75515840000205, -95.41006412981534
-// 29.75522592853264, -95.40990990279644
-
 // https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula
 function calculateDistance(lat1,lon1,lat2,lon2) {
     function deg2rad(deg) {
@@ -151,7 +161,6 @@ function calculateAngle(lat1,lon1,lat2,lon2) {
 // Start by attempting to watch the geolocation position
 if('geolocation' in navigator) {
     try {
-        //navigator.geolocation.watchPosition(updateLocation);
         navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
         setInterval(() => {
             navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
@@ -161,6 +170,20 @@ if('geolocation' in navigator) {
     }
 } else {
     document.body.innerHTML = "geolocation not supported in this browser"
+}
+
+const isIOS = (
+    navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
+    navigator.userAgent.match(/AppleWebKit/)
+);
+if (isIOS) {
+    DeviceOrientationEvent.requestPermission()
+        .then((res) => {
+            if (res === 'granted')
+                window.addEventListener("deviceorientation", updateHeading, true);
+        })
+} else {
+    window.addEventListener("deviceorientation", updateHeading, true);
 }
 
 // css flip

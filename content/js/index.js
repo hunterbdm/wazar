@@ -47,7 +47,7 @@ function updateLocation(position) {
 
 function updateHeading(e) {
     console.log(e)
-    loc.heading = (e['webkitCompassHeading'] || Math.abs(e.alpha - 360)) % 360;
+    loc.heading = normalizeAngle(e['webkitCompassHeading'] || Math.abs(e.alpha - 360));
     updateUI()
 }
 
@@ -74,7 +74,7 @@ function updateUI() {
 
     for (let i = 0; i < cops.length; i++) {
         cops[i].distance = calculateDistance(loc.lat, loc.long, cops[i].location.y, cops[i].location.x)
-        cops[i].angleTo = calculateAngle(loc.lat, loc.long, cops[i].location.y, cops[i].location.x)
+        cops[i].angleTo = normalizeAngle(calculateAngle(loc.lat, loc.long, cops[i].location.y, cops[i].location.x))
     }
 
     cops = cops.sort((a, b) => {
@@ -97,7 +97,7 @@ function updateUI() {
 }
 
 function createEntry(cop) {
-    const fixedAngle = Math.round((cop.angleTo - loc.heading) % 360)
+    const fixedAngle = Math.round(normalizeAngle(cop.angleTo - loc.heading))
 
     const entry = document.createElement('div');
     entry.classList.add('entry');
@@ -122,7 +122,7 @@ function createEntry(cop) {
 }
 
 function updateEntry(entry, cop) {
-    const fixedAngle = Math.round((cop.angleTo - loc.heading) % 360)
+    const fixedAngle = Math.round(normalizeAngle(cop.angleTo - loc.heading))
     entry.querySelector('i').style.transform = `rotateZ(${fixedAngle}deg)`;
 
     const span = entry.querySelector('span')
@@ -168,11 +168,25 @@ function calculateAngle(lat1,lon1,lat2,lon2) {
     // angle in degrees
     return Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
 }
+function normalizeAngle(angle) {
+    // 0 -359
+    // 0-179
+    // -1
+    while (angle > 180) {
+        angle -= 180;
+    }
+
+    while (angle < -180) {
+        angle += 180;
+    }
+
+    return angle;
+}
 
 
 void function start() {
     try {
-        const isIOS =
+        let isIOS =
             navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
             navigator.userAgent.match(/AppleWebKit/);
 

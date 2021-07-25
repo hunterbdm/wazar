@@ -158,44 +158,51 @@ function calculateAngle(lat1,lon1,lat2,lon2) {
     return Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
 }
 
-// Start by attempting to watch the geolocation position
-if('geolocation' in navigator) {
+
+void function start() {
     try {
-        navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
-        setInterval(() => {
+        // Start by attempting to watch the geolocation position
+        if('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
-        }, 1000)
+            setInterval(() => {
+                navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
+            }, 1000)
+        } else {
+            throw "geolocation not supported in this browser"
+        }
+
+        // Then device orientation for heading
+        const isIOS = (
+            navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
+            navigator.userAgent.match(/AppleWebKit/)
+        );
+        if (isIOS) {
+            DeviceOrientationEvent.requestPermission()
+                .then((res) => {
+                    if (res === 'granted')
+                        window.addEventListener("deviceorientation", updateHeading, true);
+                    else {
+                        throw "bad response: " + res
+                    }
+                })
+        } else {
+            window.addEventListener("deviceorientation", updateHeading, true);
+        }
+
+        // css flip
+        let lightTheme = true;
+        window.onclick = function() {
+            lightTheme = !lightTheme;
+
+            if (lightTheme) {
+                document.body.style.backgroundColor = '#ffffff'
+                document.body.style.color = '#000000'
+            } else {
+                document.body.style.backgroundColor = '#000000'
+                document.body.style.color = '#ffffff'
+            }
+        }
     } catch(e) {
         document.body.innerHTML = String(e)
     }
-} else {
-    document.body.innerHTML = "geolocation not supported in this browser"
-}
-
-const isIOS = (
-    navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
-    navigator.userAgent.match(/AppleWebKit/)
-);
-if (isIOS) {
-    DeviceOrientationEvent.requestPermission()
-        .then((res) => {
-            if (res === 'granted')
-                window.addEventListener("deviceorientation", updateHeading, true);
-        })
-} else {
-    window.addEventListener("deviceorientation", updateHeading, true);
-}
-
-// css flip
-let lightTheme = true;
-window.onclick = function() {
-    lightTheme = !lightTheme;
-
-    if (lightTheme) {
-        document.body.style.backgroundColor = '#ffffff'
-        document.body.style.color = '#000000'
-    } else {
-        document.body.style.backgroundColor = '#000000'
-        document.body.style.color = '#ffffff'
-    }
-}
+}();

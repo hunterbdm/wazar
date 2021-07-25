@@ -169,15 +169,12 @@ function calculateAngle(lat1,lon1,lat2,lon2) {
     return Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
 }
 function normalizeAngle(angle) {
-    // 0 -359
-    // 0-179
-    // -1
-    while (angle > 180) {
-        angle -= 180;
-    }
+    angle = angle % 360
 
-    while (angle < -180) {
-        angle += 180;
+    if (angle > 180) {
+        angle = -360 + angle;
+    } else if (angle < -180) {
+        angle = 360 + angle;
     }
 
     return angle;

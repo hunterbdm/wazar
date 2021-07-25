@@ -172,21 +172,11 @@ void function start() {
         }
 
         // Then device orientation for heading
-        const isIOS = (
+        const isIOS =
             navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
-            navigator.userAgent.match(/AppleWebKit/)
-        );
-        if (isIOS) {
-            DeviceOrientationEvent.requestPermission()
-                .then((res) => {
-                    if (res === 'granted')
-                        window.addEventListener("deviceorientation", updateHeading, true);
-                    else {
-                        throw "bad response: " + res
-                    }
-                })
-        } else {
-            window.addEventListener("deviceorientation", updateHeading, true);
+            navigator.userAgent.match(/AppleWebKit/);
+        if (!isIOS) {
+            window.addEventListener("deviceorientationabsolute", updateHeading, true);
         }
 
         // css flip
@@ -200,6 +190,18 @@ void function start() {
             } else {
                 document.body.style.backgroundColor = '#000000'
                 document.body.style.color = '#ffffff'
+            }
+
+            if (isIOS) {
+                DeviceOrientationEvent.requestPermission()
+                    .then((res) => {
+                        if (res === 'granted')
+                            window.addEventListener("deviceorientation", updateHeading, true);
+                        else {
+                            throw "bad response: " + res
+                        }
+                    })
+                isIOS = false
             }
         }
     } catch(e) {

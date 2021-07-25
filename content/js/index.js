@@ -1,26 +1,40 @@
-let first = true;
-const loc = {
-    lat: 0,
-    long: 0,
-    heading: 0,
-}
+let loc;
 let cops = [];
 
+// 29.765076221317727, -95.4093851307223
+window.ulfs = (input) => {
+    let split = input.split(',').map(x => Number(x.trim()))
+
+    updateLocation({
+        coords: {
+            latitude: split[0],
+            longitude: split[1],
+        }
+    }, true)
+}
+
 function updateLocation(position) {
-    loc.lat = position.coords.latitude;
-    loc.long = position.coords.longitude;
-    loc.heading = position.coords.heading || 0;
+    if (!loc) {
+        loc = {
+            lat: position.coords.latitude,
+            long: position.coords.longitude,
+            heading: 0,
+        }
 
-    console.log(loc)
-
-    // If its first position pulled we start pulling the waze cop data
-    if (first) {
-        first = false
         pullWazeData();
         setInterval(() => pullWazeData(), 5000)
     } else {
-        updateUI();
+        if (loc.lat === position.coords.latitude && loc.long === position.coords.longitude)
+            return
+
+        loc = {
+            lat: position.coords.latitude,
+            long: position.coords.longitude,
+            heading: calculateAngle(loc.lat, loc.long, position.coords.latitude, position.coords.longitude),
+        }
     }
+
+    updateUI();
 }
 
 async function pullWazeData() {
@@ -40,9 +54,7 @@ async function pullWazeData() {
 function updateUI() {
     document.querySelector('#currentLat').innerText = Number(loc.lat).toFixed(8)
     document.querySelector('#currentLong').innerText = Number(loc.long).toFixed(8)
-    document.querySelector('#currentHeading').innerText = Number(loc.heading).toFixed(8)
-
-    if (first) return
+    document.querySelector('#currentHeading').style.transform = `rotateZ(${Number(loc.heading)}deg)`
 
     for (let i = 0; i < cops.length; i++) {
         cops[i].distance = calculateDistance(loc.lat, loc.long, cops[i].location.y, cops[i].location.x)
@@ -65,18 +77,6 @@ function updateUI() {
             updateEntry(currentEntries[i], cops[i])
         else
             createEntry(cops[i])
-    }
-
-    let innerHtml = '';
-    for (let cop of cops) {
-        const fixedAngle = Math.round(cop.angleTo - loc.heading)
-
-        innerHtml += `
-        <div class="entry">
-            <i class="fa fa-arrow-up" style="transform: rotateZ(${fixedAngle}deg);"></i>
-            <span class="distance">${cop.distance.toFixed(2)} miles${cop.street ? ` (${cop.street})` : ''}</span>
-        </div>
-        `
     }
 }
 
@@ -109,6 +109,9 @@ function updateEntry(entry, cop) {
     span.innerText = `${cop.distance.toFixed(2)} miles`
     if (cop.street) span.innerText += ` (${cop.street})`
 }
+
+// 29.75515840000205, -95.41006412981534
+// 29.75522592853264, -95.40990990279644
 
 // https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula
 function calculateDistance(lat1,lon1,lat2,lon2) {
@@ -149,7 +152,7 @@ function calculateAngle(lat1,lon1,lat2,lon2) {
 if('geolocation' in navigator) {
     try {
         //navigator.geolocation.watchPosition(updateLocation);
-        navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': false, 'timeout': 1000, 'maximumAge': 10000 });
+        navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
         setInterval(() => {
             navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
         }, 1000)

@@ -97,7 +97,7 @@ function updateUI() {
 }
 
 function createEntry(cop) {
-    const fixedAngle = Math.round(cop.angleTo - loc.heading)
+    const fixedAngle = Math.round((cop.angleTo - loc.heading) % 360)
 
     const entry = document.createElement('div');
     entry.classList.add('entry');
@@ -122,7 +122,7 @@ function createEntry(cop) {
 }
 
 function updateEntry(entry, cop) {
-    const fixedAngle = Math.round(cop.angleTo - loc.heading)
+    const fixedAngle = Math.round((cop.angleTo - loc.heading) % 360)
     entry.querySelector('i').style.transform = `rotateZ(${fixedAngle}deg)`;
 
     const span = entry.querySelector('span')

@@ -1,10 +1,30 @@
+const tripId = Math.random().toString(16).substring(2);
 let loc = {
     lat: 0,
     long: 0,
     heading: 0,
 }
 let cops = [];
+let orientationVerified = false
+let orientationFailed = 0;
+
 const isDebug = document.location.search.includes('debug')
+const debugData = {
+    eventCounts: {
+        'deviceorientationabsolute': 0,
+        'deviceorientationabsolute_withdata': 0,
+        'deviceorientation': 0,
+        'deviceorientation_withdata': 0,
+
+        'verified_deviceorientationabsolute': 0,
+        'verified_deviceorientationabsolute_withdata': 0,
+        'verified_deviceorientation': 0,
+        'verified_deviceorientation_withdata': 0,
+
+        'attempt_verify': 0,
+        'fail_verify_error': 0,
+    }
+}
 
 window.ulfs = (input) => {
     let split = input.split(',').map(x => Number(x.trim()))
@@ -33,13 +53,16 @@ function updateLocation(position) {
         if (loc.lat === position.coords.latitude && loc.long === position.coords.longitude)
             return
 
-        // loc = {
-        //     lat: position.coords.latitude,
-        //     long: position.coords.longitude,
-        //     heading: calculateAngle(loc.lat, loc.long, position.coords.latitude, position.coords.longitude),
-        // }
-        loc.lat = position.coords.latitude;
-        loc.long = position.coords.longitude;
+        if (orientationFailed >= (orientationVerified ? 4 : 2)) {
+            loc = {
+                lat: position.coords.latitude,
+                long: position.coords.longitude,
+                heading: calculateAngle(loc.lat, loc.long, position.coords.latitude, position.coords.longitude),
+            }
+        } else {
+            loc.lat = position.coords.latitude;
+            loc.long = position.coords.longitude;
+        }
     }
 
     updateUI();
@@ -52,7 +75,7 @@ function updateHeading(e) {
 }
 
 async function pullWazeData() {
-    let res = await fetch(`/api?lat=${loc.lat.toFixed(8)}&long=${loc.long.toFixed(8)}`)
+    let res = await fetch(`/api?lat=${loc.lat.toFixed(8)}&long=${loc.long.toFixed(8)}&tid=${tripId}`)
 
     if (res.ok) {
         const resJson = await res.json()
@@ -68,9 +91,13 @@ async function pullWazeData() {
 function updateUI() {
     document.querySelector('#currentLat').innerText = Number(loc.lat).toFixed(8)
     document.querySelector('#currentLong').innerText = Number(loc.long).toFixed(8)
-    document.querySelector('#currentHeading').style.transform = `rotateZ(${Number(loc.heading)}deg)`
-    if (isDebug)
-        document.querySelector('#currentHeading').parentElement.childNodes[0].textContent = `HEADING: ${Math.round(loc.heading)}`
+
+    let currentHeading = document.querySelector('#currentHeading');
+    currentHeading.style.transform = `rotateZ(${Number(loc.heading)}deg)`
+    if (isDebug) {
+        currentHeading.parentElement.childNodes[0].textContent = `HEADING: ${loc.heading.toFixed(4)}`
+        currentHeading.parentElement.childNodes[2].textContent = JSON.stringify(debugData.eventCounts, null, 4)
+    }
 
     for (let i = 0; i < cops.length; i++) {
         cops[i].distance = calculateDistance(loc.lat, loc.long, cops[i].location.y, cops[i].location.x)
@@ -97,7 +124,7 @@ function updateUI() {
 }
 
 function createEntry(cop) {
-    const fixedAngle = Math.round(normalizeAngle(cop.angleTo - loc.heading))
+    const fixedAngle = normalizeAngle(cop.angleTo - loc.heading)
 
     const entry = document.createElement('div');
     entry.classList.add('entry');
@@ -112,7 +139,7 @@ function createEntry(cop) {
     if (cop.street) span.innerText += ` (${cop.street})`
 
     if (isDebug) {
-        span.innerText += ` (${Math.round(cop.angleTo)} / ${fixedAngle})`
+        span.innerText += ` (${cop.angleTo.toFixed(4)} / ${fixedAngle.toFixed(4)})`
     }
 
     entry.appendChild(arrow);
@@ -122,7 +149,7 @@ function createEntry(cop) {
 }
 
 function updateEntry(entry, cop) {
-    const fixedAngle = Math.round(normalizeAngle(cop.angleTo - loc.heading))
+    const fixedAngle = normalizeAngle(cop.angleTo - loc.heading)
     entry.querySelector('i').style.transform = `rotateZ(${fixedAngle}deg)`;
 
     const span = entry.querySelector('span')
@@ -130,7 +157,7 @@ function updateEntry(entry, cop) {
     if (cop.street) span.innerText += ` (${cop.street})`
 
     if (isDebug) {
-        span.innerText += ` (${Math.round(cop.angleTo)} / ${fixedAngle})`
+        span.innerText += ` (${cop.angleTo.toFixed(4)} / ${fixedAngle.toFixed(4)})`
     }
 }
 
@@ -180,27 +207,45 @@ function normalizeAngle(angle) {
     return angle;
 }
 
+function setupListeners() {
+    window.addEventListener("deviceorientationabsolute", (e) => {
+        debugData.eventCounts[(orientationVerified?'verified_':'')+'deviceorientationabsolute'] += 1
+        if (e.alpha != null)
+            debugData.eventCounts[(orientationVerified?'verified_':'')+'deviceorientationabsolute_withdata'] += 1
+        else
+            orientationFailed += 1;
+        updateHeading(e)
+    }, true);
+
+    window.addEventListener("deviceorientation", (e) => {
+        debugData.eventCounts[(orientationVerified?'verified_':'')+'deviceorientation'] += 1
+        if (e.alpha != null)
+            debugData.eventCounts[(orientationVerified?'verified_':'')+'deviceorientation_withdata'] += 1
+        else
+            orientationFailed += 1;
+        updateHeading(e)
+    }, true);
+}
 
 void function start() {
     try {
-        let isIOS =
-            navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
-            navigator.userAgent.match(/AppleWebKit/);
+        // let isIOS =
+        //     navigator.userAgent.match(/(iPod|iPhone|iPad)/) &&
+        //     navigator.userAgent.match(/AppleWebKit/);
+        // let isTesla = navigator.userAgent.includes('Tesla')
 
         // Start by attempting to watch the geolocation position
         if('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
+            navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 5000 });
             setInterval(() => {
-                navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 10000 });
+                navigator.geolocation.getCurrentPosition(updateLocation, console.log, { 'enableHighAccuracy': true, 'timeout': 1000, 'maximumAge': 5000 });
             }, 1000)
         } else {
             throw "geolocation not supported in this browser"
         }
 
         // Then device orientation for heading
-        if (!isIOS) {
-            window.addEventListener("deviceorientationabsolute", updateHeading, true);
-        }
+        setupListeners()
 
         // css flip
         let lightTheme = true;
@@ -215,16 +260,22 @@ void function start() {
                 document.body.style.color = '#ffffff'
             }
 
-            if (isIOS) {
-                DeviceOrientationEvent.requestPermission()
-                    .then((res) => {
-                        if (res === 'granted')
-                            window.addEventListener("deviceorientation", updateHeading, true);
-                        else {
-                            throw "bad response: " + res
-                        }
-                    })
-                isIOS = false
+            if (!orientationVerified) {
+                try {
+                    debugData.eventCounts['attempt_verify'] += 1;
+                    DeviceOrientationEvent.requestPermission()
+                        .then((res) => {
+                            if (res === 'granted') {
+                                orientationVerified = true
+                                setupListeners()
+                            }
+                            else {
+                                throw "bad response: " + res
+                            }
+                        })
+                } catch(e) {
+                    debugData.eventCounts['fail_verify_error'] += 1;
+                }
             }
         }
     } catch(e) {

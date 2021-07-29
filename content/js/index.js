@@ -6,7 +6,6 @@ let loc = {
 }
 let cops = [];
 let orientationVerified = false
-let orientationFailed = 0;
 
 const isDebug = document.location.search.includes('debug')
 const debugData = {
@@ -53,7 +52,8 @@ function updateLocation(position) {
         if (loc.lat === position.coords.latitude && loc.long === position.coords.longitude)
             return
 
-        if (orientationFailed >= (orientationVerified ? 4 : 2)) {
+        // If device orientation hasn't provided any data then we calculate it based off movement from last position
+        if (debugData.eventCounts[`${orientationVerified?'verified_':''}deviceorientationabsolute_withdata`] ===  0 && debugData.eventCounts[`${orientationVerified?'verified_':''}deviceorientation_withdata`] ===  0) {
             loc = {
                 lat: position.coords.latitude,
                 long: position.coords.longitude,
@@ -209,20 +209,16 @@ function normalizeAngle(angle) {
 
 function setupListeners() {
     window.addEventListener("deviceorientationabsolute", (e) => {
-        debugData.eventCounts[(orientationVerified?'verified_':'')+'deviceorientationabsolute'] += 1
+        debugData.eventCounts[`${orientationVerified?'verified_':''}deviceorientationabsolute`] += 1
         if (e.alpha != null)
-            debugData.eventCounts[(orientationVerified?'verified_':'')+'deviceorientationabsolute_withdata'] += 1
-        else
-            orientationFailed += 1;
+            debugData.eventCounts[`${orientationVerified?'verified_':''}deviceorientationabsolute_withdata`] += 1
         updateHeading(e)
     }, true);
 
     window.addEventListener("deviceorientation", (e) => {
-        debugData.eventCounts[(orientationVerified?'verified_':'')+'deviceorientation'] += 1
+        debugData.eventCounts[`${orientationVerified?'verified_':''}deviceorientation`] += 1
         if (e.alpha != null)
-            debugData.eventCounts[(orientationVerified?'verified_':'')+'deviceorientation_withdata'] += 1
-        else
-            orientationFailed += 1;
+            debugData.eventCounts[`${orientationVerified?'verified_':''}deviceorientation_withdata`] += 1
         updateHeading(e)
     }, true);
 }
@@ -243,9 +239,6 @@ void function start() {
         } else {
             throw "geolocation not supported in this browser"
         }
-
-        // Then device orientation for heading
-        setupListeners()
 
         // css flip
         let lightTheme = true;
@@ -275,6 +268,7 @@ void function start() {
                         })
                 } catch(e) {
                     debugData.eventCounts['fail_verify_error'] += 1;
+                    setupListeners()
                 }
             }
         }
